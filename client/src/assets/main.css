@@ -270,6 +270,24 @@ h3 { font-size: 1.25rem; }
   font-size: 0.85rem;
 }
 
+/* Bouton danger — suppression */
+.btn--danger {
+  background: var(--color-bloque);
+  color: white;
+}
+
+.btn--danger:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn--danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* ============================================================
    FEATURES — Page d'accueil
    ============================================================ */
@@ -589,6 +607,15 @@ h3 { font-size: 1.25rem; }
 
 .task-detail__back {
   margin-top: var(--spacing-lg);
+}
+
+.task-detail__actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--color-border-light);
 }
 
 /* ============================================================

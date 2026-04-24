@@ -7,6 +7,7 @@
   - Statut, priorité
   - Responsable et rôle
   - Date d'échéance et date de création
+  - Bouton de suppression avec confirmation
 
   Données chargées depuis l'API : GET /api/tasks/:id
 
@@ -86,18 +87,55 @@
         </div>
       </div>
 
-      <!-- Bouton retour vers le Kanban -->
-      <div class="task-detail__back">
+      <!-- Boutons d'action : retour + suppression -->
+      <div class="task-detail__actions">
         <router-link :to="`/kanban/${task.project_id}`" class="btn btn--outline">
           ← Retour au Kanban
         </router-link>
+
+        <!-- Bouton de suppression avec confirmation -->
+        <button
+          class="btn btn--danger"
+          @click="confirmDelete"
+          :disabled="isDeleting"
+        >
+          {{ isDeleting ? 'Suppression...' : '🗑️ Supprimer cette tâche' }}
+        </button>
+      </div>
+
+      <!-- Modal de confirmation de suppression -->
+      <div v-if="showConfirm" class="modal-overlay" @click.self="showConfirm = false">
+        <div class="modal">
+          <div class="modal__header">
+            <h2>⚠️ Confirmer la suppression</h2>
+            <button class="modal__close" @click="showConfirm = false">&times;</button>
+          </div>
+          <div class="modal__body">
+            <p style="margin-bottom: 16px;">
+              Êtes-vous sûr de vouloir supprimer la tâche
+              <strong>« {{ task.title }} »</strong> ?
+            </p>
+            <p style="color: var(--color-text-light); font-size: 0.9rem; margin-bottom: 24px;">
+              Cette action est irréversible. La tâche sera définitivement supprimée du chantier
+              <strong>{{ task.project_name }}</strong>.
+            </p>
+            <div class="form__actions">
+              <button class="btn btn--danger" @click="executeDelete" :disabled="isDeleting">
+                {{ isDeleting ? 'Suppression...' : 'Oui, supprimer' }}
+              </button>
+              <button class="btn btn--outline" @click="showConfirm = false">
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { fetchTask } from '../services/api'
+import { fetchTask, deleteTask } from '../services/api'
 
 export default {
   name: 'TaskDetailView',
@@ -109,7 +147,11 @@ export default {
       /** État de chargement */
       loading: true,
       /** Message d'erreur */
-      error: null
+      error: null,
+      /** Affichage du modal de confirmation */
+      showConfirm: false,
+      /** État de la suppression en cours */
+      isDeleting: false
     }
   },
 
@@ -180,6 +222,31 @@ export default {
       const datePart = dateStr.split(' ')[0]
       const [year, month, day] = datePart.split('-')
       return `${day}/${month}/${year}`
+    },
+
+    /**
+     * Ouvre le modal de confirmation de suppression.
+     */
+    confirmDelete() {
+      this.showConfirm = true
+    },
+
+    /**
+     * Exécute la suppression de la tâche après confirmation.
+     * Appelle DELETE /api/tasks/:id puis redirige vers le Kanban du chantier.
+     */
+    async executeDelete() {
+      this.isDeleting = true
+      try {
+        await deleteTask(this.task.id)
+        // Redirection vers le Kanban du chantier après suppression
+        this.$router.push(`/kanban/${this.task.project_id}`)
+      } catch (err) {
+        this.error = 'Erreur lors de la suppression de la tâche.'
+        this.showConfirm = false
+      } finally {
+        this.isDeleting = false
+      }
     }
   }
 }

@@ -135,11 +135,15 @@ router.post('/projects/:projectId/tasks', (req, res) => {
       [Number(projectId), title.trim(), description || '', priority || 'moyenne', assigned_to || '', role || '', due_date || null]
     );
 
+    // Récupération de l'ID immédiatement après l'INSERT (avant saveDatabase qui réinitialise l'état)
+    const idResult = db.exec('SELECT last_insert_rowid() AS id');
+    const newId = idResult[0].values[0][0];
+
     // Sauvegarde de la base sur le disque après écriture
     saveDatabase(db);
 
-    // Récupération de la tâche créée pour la retourner au client
-    const newTaskResult = db.exec('SELECT * FROM tasks WHERE id = last_insert_rowid()');
+    // Récupération de la tâche créée par son ID pour la retourner au client
+    const newTaskResult = db.exec('SELECT * FROM tasks WHERE id = ?', [newId]);
     const newTask = resultToObjects(newTaskResult)[0];
 
     res.status(201).json(newTask);
@@ -198,6 +202,37 @@ router.patch('/tasks/:id', (req, res) => {
     res.json(resultToObjects(updatedResult)[0]);
   } catch (error) {
     console.error('Erreur lors de la mise à jour de la tâche :', error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+/**
+ * DELETE /api/tasks/:id
+ * Supprime une tâche par son ID.
+ * Retourne un message de confirmation après suppression.
+ */
+router.delete('/tasks/:id', (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const { id } = req.params;
+
+    // Vérification que la tâche existe avant suppression
+    const existingResult = db.exec('SELECT * FROM tasks WHERE id = ?', [Number(id)]);
+    const existing = resultToObjects(existingResult);
+
+    if (existing.length === 0) {
+      return res.status(404).json({ error: 'Tâche non trouvée.' });
+    }
+
+    // Suppression de la tâche
+    db.run('DELETE FROM tasks WHERE id = ?', [Number(id)]);
+
+    // Sauvegarde de la base sur le disque après suppression
+    saveDatabase(db);
+
+    res.json({ message: 'Tâche supprimée avec succès.', id: Number(id) });
+  } catch (error) {
+    console.error('Erreur lors de la suppression de la tâche :', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

@@ -110,3 +110,17 @@ export async function updateTask(id, updates) {
   if (!response.ok) throw new Error('Erreur lors de la mise à jour de la tâche')
   return response.json()
 }
+
+/**
+ * Supprime une tâche par son ID.
+ *
+ * @param {number} id - Identifiant de la tâche à supprimer
+ * @returns {Promise<Object>} Message de confirmation { message, id }
+ */
+export async function deleteTask(id) {
+  const response = await fetch(`${API_BASE}/tasks/${id}`, {
+    method: 'DELETE'
+  })
+  if (!response.ok) throw new Error('Erreur lors de la suppression de la tâche')
+  return response.json()
+}
