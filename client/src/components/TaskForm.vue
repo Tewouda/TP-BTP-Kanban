@@ -25,7 +25,7 @@
     <div class="modal">
       <!-- Header du modal -->
       <div class="modal__header">
-        <h2>➕ Nouvelle tâche</h2>
+        <h2>{{ isEditMode ? '✏️ Modifier la tâche' : '➕ Nouvelle tâche' }}</h2>
         <button class="modal__close" @click="$emit('close')">&times;</button>
       </div>
 
@@ -57,6 +57,18 @@
               v-model="form.description"
               placeholder="Détails de la tâche..."
               rows="3"
+            ></textarea>
+          </div>
+
+          <!-- Notes / Commentaires -->
+          <div class="form__group">
+            <label class="form__label" for="task-notes">Notes de chantier</label>
+            <textarea
+              id="task-notes"
+              class="form__textarea"
+              v-model="form.notes"
+              placeholder="Commentaires, compte-rendu d'avancement..."
+              rows="2"
             ></textarea>
           </div>
 
@@ -97,7 +109,7 @@
           <!-- Boutons d'action -->
           <div class="form__actions">
             <button type="submit" class="btn btn--primary" :disabled="isSubmitting">
-              {{ isSubmitting ? 'Création...' : 'Créer la tâche' }}
+              {{ isSubmitting ? 'Enregistrement...' : (isEditMode ? 'Enregistrer les modifications' : 'Créer la tâche') }}
             </button>
             <button type="button" class="btn btn--outline" @click="$emit('close')">
               Annuler
@@ -115,7 +127,7 @@
 </template>
 
 <script>
-import { createTask } from '../services/api'
+import { createTask, updateTask } from '../services/api'
 
 export default {
   name: 'TaskForm',
@@ -125,10 +137,15 @@ export default {
     projectId: {
       type: [Number, String],
       required: true
+    },
+    /** Tâche existante à modifier (mode édition) */
+    existingTask: {
+      type: Object,
+      default: null
     }
   },
 
-  emits: ['task-created', 'close'],
+  emits: ['task-saved', 'close'],
 
   data() {
     return {
@@ -139,6 +156,7 @@ export default {
       form: {
         title: '',
         description: '',
+        notes: '',
         priority: 'moyenne',
         due_date: ''
       },
@@ -148,6 +166,28 @@ export default {
       errors: {},
       /** État de soumission (pour désactiver le bouton) */
       isSubmitting: false
+    }
+  },
+
+  computed: {
+    isEditMode() {
+      return !!this.existingTask
+    }
+  },
+
+  mounted() {
+    // Si on est en mode édition, préremplir le formulaire
+    if (this.existingTask) {
+      this.form = {
+        title: this.existingTask.title || '',
+        description: this.existingTask.description || '',
+        notes: this.existingTask.notes || '',
+        priority: this.existingTask.priority || 'moyenne',
+        due_date: this.existingTask.due_date ? this.existingTask.due_date.split(' ')[0] : ''
+      }
+      if (this.existingTask.assigned_to) {
+        this.selectedPerson = `${this.existingTask.assigned_to}|${this.existingTask.role || ''}`
+      }
     }
   },
 
@@ -185,11 +225,17 @@ export default {
       this.isSubmitting = true
 
       try {
-        // Appel API pour créer la tâche
-        const newTask = await createTask(this.projectId, taskData)
+        let savedTask;
+        if (this.isEditMode) {
+          // Appel API pour modifier la tâche
+          savedTask = await updateTask(this.existingTask.id, taskData)
+        } else {
+          // Appel API pour créer la tâche
+          savedTask = await createTask(this.projectId, taskData)
+        }
 
         // Émission de l'événement pour informer le parent
-        this.$emit('task-created', newTask)
+        this.$emit('task-saved', savedTask)
       } catch (error) {
         this.errors.global = error.message || 'Une erreur est survenue.'
       } finally {

@@ -31,12 +31,28 @@
     </div>
 
     <template v-else>
-      <!-- En-tête avec informations du chantier -->
-      <div class="page__header">
-        <h1 class="page__title">🏗️ {{ project.name }}</h1>
-        <p class="page__subtitle">
-          📍 {{ project.location }} · 📅 {{ formatDate(project.start_date) }} → {{ formatDate(project.end_date) }}
-        </p>
+      <!-- En-tête avec informations du chantier et sélecteur -->
+      <div v-if="successMessage" class="success-message" style="background-color: #10b981; color: white; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; text-align: center; font-weight: 500;">
+        ✅ {{ successMessage }}
+      </div>
+
+      <div class="page__header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+        <div>
+          <h1 class="page__title">🏗️ {{ project.name }}</h1>
+          <p class="page__subtitle">
+            📍 {{ project.location }} · 📅 {{ formatDate(project.start_date) }} → {{ formatDate(project.end_date) }}
+          </p>
+        </div>
+        
+        <!-- Sélecteur de projet rapide -->
+        <div class="project-selector" style="min-width: 250px;">
+          <label style="display: block; font-size: 0.8rem; color: var(--color-text-light); margin-bottom: 4px;">Changer de chantier :</label>
+          <select class="form__select" v-model="selectedProjectId" @change="switchProject">
+            <option v-for="p in allProjects" :key="p.id" :value="p.id">
+              {{ p.name }}
+            </option>
+          </select>
+        </div>
       </div>
 
       <!-- Barre de filtres et bouton d'ajout -->
@@ -75,6 +91,29 @@
           <option value="basse">🟢 Basse</option>
         </select>
 
+        <!-- Filtre par responsable -->
+        <select
+          class="form__select filters__select"
+          v-model="filters.assigned_to"
+          @change="applyFilters"
+        >
+          <option value="">Tous les responsables</option>
+          <option value="Marc Dupont">Marc Dupont</option>
+          <option value="Sophie Martin">Sophie Martin</option>
+        </select>
+
+        <!-- Tri -->
+        <select
+          class="form__select filters__select"
+          v-model="filters.sort"
+          @change="applyFilters"
+        >
+          <option value="">Tri par défaut (création)</option>
+          <option value="due_date_asc">Échéance la plus proche</option>
+          <option value="due_date_desc">Échéance la plus lointaine</option>
+          <option value="priority_desc">Priorité (Haute → Basse)</option>
+        </select>
+
         <!-- Bouton pour ajouter une tâche -->
         <button class="btn btn--primary" @click="showTaskForm = true">
           ➕ Nouvelle tâche
@@ -89,6 +128,7 @@
           :status="col.status"
           :label="col.label"
           :tasks="getTasksByStatus(col.status)"
+          @task-status-changed="handleTaskStatusChanged"
         />
       </div>
 
@@ -96,7 +136,7 @@
       <TaskForm
         v-if="showTaskForm"
         :project-id="projectId"
-        @task-created="onTaskCreated"
+        @task-saved="onTaskCreated"
         @close="showTaskForm = false"
       />
     </template>
@@ -106,7 +146,7 @@
 <script>
 import KanbanColumn from '../components/KanbanColumn.vue'
 import TaskForm from '../components/TaskForm.vue'
-import { fetchProject, fetchTasks } from '../services/api'
+import { fetchProject, fetchTasks, fetchProjects, updateTask } from '../services/api'
 
 export default {
   name: 'KanbanView',
@@ -122,10 +162,16 @@ export default {
       project: {},
       /** Liste des tâches du projet (avec filtres appliqués) */
       tasks: [],
+      /** Liste de tous les projets pour le sélecteur */
+      allProjects: [],
+      /** ID du projet sélectionné dans le menu déroulant */
+      selectedProjectId: null,
       /** État de chargement */
       loading: true,
       /** Message d'erreur */
       error: null,
+      /** Message de succès temporaire */
+      successMessage: null,
       /** Affichage du formulaire d'ajout de tâche */
       showTaskForm: false,
 
@@ -136,7 +182,9 @@ export default {
       filters: {
         search: '',
         status: '',
-        priority: ''
+        priority: '',
+        assigned_to: '',
+        sort: ''
       },
 
       /**
@@ -189,18 +237,30 @@ export default {
     async loadData() {
       this.loading = true
       this.error = null
+      this.selectedProjectId = this.projectId
       try {
-        // Chargement en parallèle du projet et de ses tâches
-        const [project, tasks] = await Promise.all([
+        // Chargement en parallèle du projet, de ses tâches et de tous les projets
+        const [project, tasks, projectsList] = await Promise.all([
           fetchProject(this.projectId),
-          fetchTasks(this.projectId)
+          fetchTasks(this.projectId, this.filters),
+          fetchProjects()
         ])
         this.project = project
         this.tasks = tasks
+        this.allProjects = projectsList
       } catch (err) {
         this.error = 'Impossible de charger le chantier. Vérifiez que le serveur est démarré.'
       } finally {
         this.loading = false
+      }
+    },
+
+    /**
+     * Change de chantier et navigue vers sa route Kanban.
+     */
+    switchProject() {
+      if (this.selectedProjectId && this.selectedProjectId !== this.projectId) {
+        this.$router.push(`/kanban/${this.selectedProjectId}`)
       }
     },
 
@@ -228,14 +288,39 @@ export default {
     },
 
     /**
-     * Callback appelé quand une tâche est créée via le TaskForm.
-     * Ajoute la tâche à la liste et ferme le modal.
-     *
-     * @param {Object} newTask - La tâche nouvellement créée
+     * Met à jour le statut d'une tâche via l'API et en local.
+     * Appelé par l'événement de drag&drop dans KanbanColumn.
      */
-    onTaskCreated(newTask) {
-      this.tasks.push(newTask)
+    async handleTaskStatusChanged({ taskId, newStatus }) {
+      // Trouver et mettre à jour la tâche localement pour une UI fluide
+      const taskIndex = this.tasks.findIndex(t => t.id === taskId)
+      if (taskIndex !== -1) {
+        this.tasks[taskIndex].status = newStatus
+      }
+
+      // Mettre à jour côté serveur
+      try {
+        await updateTask(taskId, { status: newStatus })
+      } catch (error) {
+        console.error('Erreur lors de la mise à jour de la tâche :', error)
+        this.error = "Erreur lors du déplacement de la tâche."
+        // En cas d'erreur on pourrait annuler le changement local ici
+      }
+    },
+
+    /**
+     * Callback appelé quand une tâche est créée ou modifiée via le TaskForm.
+     * Recharge toutes les tâches pour appliquer les filtres et tris correctement.
+     *
+     * @param {Object} savedTask - La tâche nouvellement créée ou modifiée
+     */
+    async onTaskCreated(savedTask) {
       this.showTaskForm = false
+      this.successMessage = 'Tâche enregistrée avec succès !'
+      setTimeout(() => {
+        this.successMessage = null
+      }, 3000)
+      await this.applyFilters()
     },
 
     /**

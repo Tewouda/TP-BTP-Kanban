@@ -22,11 +22,17 @@
 
     <!-- Corps de la colonne : liste des cartes de tâches -->
     <div class="kanban-column__body">
-      <TaskCard
-        v-for="task in tasks"
-        :key="task.id"
-        :task="task"
-      />
+      <draggable
+        v-model="localTasks"
+        group="tasks"
+        item-key="id"
+        class="drag-area"
+        @change="onDragChange"
+      >
+        <template #item="{ element }">
+          <TaskCard :task="element" />
+        </template>
+      </draggable>
 
       <!-- Message si la colonne est vide -->
       <p v-if="tasks.length === 0" style="color: #9ca3af; font-size: 0.85rem; text-align: center; padding: 16px;">
@@ -38,12 +44,14 @@
 
 <script>
 import TaskCard from './TaskCard.vue'
+import draggable from 'vuedraggable'
 
 export default {
   name: 'KanbanColumn',
 
   components: {
-    TaskCard
+    TaskCard,
+    draggable
   },
 
   props: {
@@ -63,6 +71,44 @@ export default {
       required: true,
       default: () => []
     }
+  },
+
+  emits: ['task-status-changed'],
+
+  computed: {
+    localTasks: {
+      get() {
+        return this.tasks
+      },
+      set(value) {
+        // Laissons le parent gérer la liste globale
+      }
+    }
+  },
+
+  methods: {
+    /**
+     * Gère les événements de drag & drop.
+     * Lorsqu'une carte est ajoutée à cette colonne (drop), on émet le changement de statut au parent.
+     */
+    onDragChange(event) {
+      if (event.added) {
+        this.$emit('task-status-changed', {
+          taskId: event.added.element.id,
+          newStatus: this.status
+        })
+      }
+    }
   }
 }
 </script>
+
+<style scoped>
+.drag-area {
+  min-height: 100px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+</style>

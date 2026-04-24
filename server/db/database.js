@@ -70,11 +70,13 @@ async function getDatabase() {
    *   - project_id  : référence au chantier (clé étrangère → projects.id)
    *   - title       : titre de la tâche
    *   - description : description détaillée
+   *   - notes       : notes et commentaires de suivi
    *   - status      : statut Kanban (a_faire, en_cours, bloque, termine)
    *   - priority    : niveau de priorité (haute, moyenne, basse)
    *   - assigned_to : responsable de la tâche (nom)
    *   - role        : rôle du responsable (chef_de_projet, conducteur_de_travaux)
    *   - due_date    : date d'échéance
+   *   - is_archived : booléen d'archivage (0 ou 1)
    *   - created_at  : date de création (auto-générée)
    */
   db.run(`
@@ -83,11 +85,13 @@ async function getDatabase() {
       project_id  INTEGER NOT NULL,
       title       TEXT NOT NULL,
       description TEXT,
+      notes       TEXT,
       status      TEXT DEFAULT 'a_faire',
       priority    TEXT DEFAULT 'moyenne',
       assigned_to TEXT,
       role        TEXT,
       due_date    TEXT,
+      is_archived INTEGER DEFAULT 0,
       created_at  TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
     )

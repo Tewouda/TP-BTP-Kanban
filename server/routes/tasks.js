@@ -40,10 +40,11 @@ router.get('/projects/:projectId/tasks', (req, res) => {
   try {
     const db = req.app.locals.db;
     const { projectId } = req.params;
-    const { status, priority, search } = req.query;
+    const { status, priority, assigned_to, search, sort } = req.query;
 
     // Construction dynamique de la requête SQL avec filtres optionnels
-    let query = 'SELECT * FROM tasks WHERE project_id = ?';
+    // On exclut les tâches archivées par défaut
+    let query = 'SELECT * FROM tasks WHERE project_id = ? AND is_archived = 0';
     const params = [Number(projectId)];
 
     // Filtre par statut Kanban
@@ -58,13 +59,29 @@ router.get('/projects/:projectId/tasks', (req, res) => {
       params.push(priority);
     }
 
-    // Recherche textuelle dans le titre ou la description
-    if (search) {
-      query += ' AND (title LIKE ? OR description LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
+    // Filtre par responsable
+    if (assigned_to) {
+      query += ' AND assigned_to = ?';
+      params.push(assigned_to);
     }
 
-    query += ' ORDER BY created_at ASC';
+    // Recherche textuelle dans le titre, la description ou les notes
+    if (search) {
+      query += ' AND (title LIKE ? OR description LIKE ? OR notes LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    // Tri
+    if (sort === 'due_date_asc') {
+      query += ' ORDER BY due_date ASC';
+    } else if (sort === 'due_date_desc') {
+      query += ' ORDER BY due_date DESC';
+    } else if (sort === 'priority_desc') {
+      // Tri personnalisé par priorité : haute -> moyenne -> basse
+      query += " ORDER BY CASE priority WHEN 'haute' THEN 1 WHEN 'moyenne' THEN 2 WHEN 'basse' THEN 3 ELSE 4 END ASC";
+    } else {
+      query += ' ORDER BY created_at ASC';
+    }
 
     const result = db.exec(query, params);
     res.json(resultToObjects(result));
@@ -115,7 +132,7 @@ router.post('/projects/:projectId/tasks', (req, res) => {
   try {
     const db = req.app.locals.db;
     const { projectId } = req.params;
-    const { title, description, priority, assigned_to, role, due_date } = req.body;
+    const { title, description, notes, priority, assigned_to, role, due_date } = req.body;
 
     // Validation minimale : le titre est obligatoire
     if (!title || title.trim() === '') {
@@ -130,9 +147,9 @@ router.post('/projects/:projectId/tasks', (req, res) => {
 
     // Insertion de la nouvelle tâche avec le statut "a_faire" par défaut
     db.run(
-      `INSERT INTO tasks (project_id, title, description, status, priority, assigned_to, role, due_date)
-       VALUES (?, ?, ?, 'a_faire', ?, ?, ?, ?)`,
-      [Number(projectId), title.trim(), description || '', priority || 'moyenne', assigned_to || '', role || '', due_date || null]
+      `INSERT INTO tasks (project_id, title, description, notes, status, priority, assigned_to, role, due_date)
+       VALUES (?, ?, ?, ?, 'a_faire', ?, ?, ?, ?)`,
+      [Number(projectId), title.trim(), description || '', notes || '', priority || 'moyenne', assigned_to || '', role || '', due_date || null]
     );
 
     // Récupération de l'ID immédiatement après l'INSERT (avant saveDatabase qui réinitialise l'état)
@@ -173,7 +190,7 @@ router.patch('/tasks/:id', (req, res) => {
     }
 
     // Liste des champs modifiables
-    const allowedFields = ['title', 'description', 'status', 'priority', 'assigned_to', 'role', 'due_date'];
+    const allowedFields = ['title', 'description', 'notes', 'status', 'priority', 'assigned_to', 'role', 'due_date', 'is_archived'];
     const updates = [];
     const values = [];
 

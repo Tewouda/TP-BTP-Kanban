@@ -9,28 +9,28 @@ Permet de visualiser rapidement l'état des projets, les tâches en cours, les b
 - **Page d'accueil** : présentation de l'application avec liens de navigation
 - **Page Chantiers** : liste des projets sous forme de cartes avec barre de progression
 - **Tableau Kanban** : 4 colonnes (À faire, En cours, Bloqué, Terminé) pour chaque chantier
-- **Détail de tâche** : page complète avec toutes les informations d'une tâche
-- **Formulaire d'ajout** : création de tâches avec validation (v-model)
-- **Filtres** : recherche textuelle, filtre par statut et par priorité
+- **Drag & Drop** : déplacement fluide des tâches entre les colonnes avec `vuedraggable`
+- **Détail de tâche** : page complète avec toutes les informations d'une tâche et gestion de notes/commentaires
+- **Formulaire d'ajout & édition** : création et modification de tâches avec validation (v-model)
+- **Filtres avancés** : recherche textuelle, filtre par statut, priorité, responsable et tri (échéance, priorité)
+- **Gestion du cycle de vie** : ajout, modification, archivage et suppression avec confirmation
+- **Sélecteur de chantiers** : navigation rapide entre les projets depuis le Kanban
+- **Indicateurs visuels** : mise en évidence des tâches en retard et des priorités hautes
 - **2 profils métier** : Chef de projet (Marc Dupont) et Conductrice de travaux (Sophie Martin)
 - **3 chantiers réalistes** : construction, rénovation, extension
 - **20 tâches métier BTP** réparties sur les 4 statuts
-- **API REST complète** : GET et POST pour projets et tâches
+- **API REST complète** : GET, POST, PATCH et DELETE pour projets et tâches
 - **Navigation Vue Router** : /, /projects, /kanban/:id, /tasks/:id
 
 ### Limites connues ⚠️
-- Pas de drag-and-drop entre les colonnes Kanban (déplacement via l'API uniquement)
-- Pas d'authentification utilisateur
-- Pas de suppression de tâche depuis l'interface
-- Base de données SQLite fichier (pas de serveur de base de données)
+- Pas d'authentification utilisateur (sessions fictives basées sur les filtres)
+- Base de données SQLite fichier (pas de serveur de base de données distant)
 - Pas de tests unitaires automatisés
 
 ### Prochaines étapes 🔮
-- Ajouter le drag-and-drop entre colonnes (vuedraggable / SortableJS)
-- Implémenter l'édition de tâche en ligne
-- Ajouter la suppression de tâche avec confirmation
 - Mettre en place l'authentification (JWT)
 - Ajouter des notifications en temps réel (WebSocket)
+- Implémenter l'upload de documents (plans, photos) par tâche
 - Déployer l'application (Docker / Vercel + Railway)
 
 ## 🏗️ Arborescence du projet

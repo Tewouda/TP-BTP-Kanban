@@ -42,7 +42,7 @@ export async function fetchProject(id) {
  * Récupère les tâches d'un projet, avec filtres optionnels.
  *
  * @param {number} projectId - Identifiant du projet
- * @param {Object} filters - Filtres optionnels { status, priority, search }
+ * @param {Object} filters - Filtres optionnels { status, priority, assigned_to, search, sort }
  * @returns {Promise<Array>} Liste des tâches filtrées
  */
 export async function fetchTasks(projectId, filters = {}) {
@@ -50,7 +50,9 @@ export async function fetchTasks(projectId, filters = {}) {
   const params = new URLSearchParams()
   if (filters.status) params.append('status', filters.status)
   if (filters.priority) params.append('priority', filters.priority)
+  if (filters.assigned_to) params.append('assigned_to', filters.assigned_to)
   if (filters.search) params.append('search', filters.search)
+  if (filters.sort) params.append('sort', filters.sort)
 
   const queryString = params.toString()
   const url = `${API_BASE}/projects/${projectId}/tasks${queryString ? '?' + queryString : ''}`

@@ -14,9 +14,19 @@
 -->
 
 <template>
-  <router-link :to="`/tasks/${task.id}`" class="task-card" :class="`task-card--${task.priority}`">
+  <router-link
+    :to="`/tasks/${task.id}`"
+    class="task-card"
+    :class="[
+      `task-card--${task.priority}`,
+      { 'task-card--overdue': isOverdue }
+    ]"
+  >
     <!-- Titre de la tâche -->
-    <div class="task-card__title">{{ task.title }}</div>
+    <div class="task-card__title">
+      <span v-if="task.priority === 'haute'" title="Priorité Haute">🔥</span>
+      {{ task.title }}
+    </div>
 
     <!-- Métadonnées de la tâche -->
     <div class="task-card__meta">
@@ -30,9 +40,10 @@
         👤 {{ task.assigned_to }}
       </span>
 
-      <!-- Date d'échéance -->
-      <span class="task-card__meta-item" v-if="task.due_date">
+      <!-- Date d'échéance avec alerte si en retard -->
+      <span class="task-card__meta-item" :class="{ 'text-danger': isOverdue }" v-if="task.due_date">
         📅 {{ formatDate(task.due_date) }}
+        <span v-if="isOverdue" title="En retard">⚠️</span>
       </span>
     </div>
   </router-link>
@@ -64,6 +75,17 @@ export default {
         'basse': 'Basse'
       }
       return labels[this.task.priority] || this.task.priority
+    },
+
+    /**
+     * Détermine si la tâche est en retard.
+     */
+    isOverdue() {
+      if (!this.task.due_date || this.task.status === 'termine') return false
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const dueDate = new Date(this.task.due_date)
+      return dueDate < today
     }
   },
 

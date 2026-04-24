@@ -57,6 +57,12 @@
         <p>{{ task.description }}</p>
       </div>
 
+      <!-- Section : Notes -->
+      <div class="task-detail__section" v-if="task.notes">
+        <h3>Notes & Commentaires</h3>
+        <p style="white-space: pre-wrap;">{{ task.notes }}</p>
+      </div>
+
       <!-- Section : Informations détaillées (grille 2 colonnes) -->
       <div class="task-detail__section">
         <h3>Informations</h3>
@@ -87,20 +93,30 @@
         </div>
       </div>
 
-      <!-- Boutons d'action : retour + suppression -->
+      <!-- Boutons d'action : retour + modification + suppression -->
       <div class="task-detail__actions">
         <router-link :to="`/kanban/${task.project_id}`" class="btn btn--outline">
           ← Retour au Kanban
         </router-link>
 
-        <!-- Bouton de suppression avec confirmation -->
-        <button
-          class="btn btn--danger"
-          @click="confirmDelete"
-          :disabled="isDeleting"
-        >
-          {{ isDeleting ? 'Suppression...' : '🗑️ Supprimer cette tâche' }}
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn--secondary" @click="showEditForm = true" style="color: var(--color-text);">
+            ✏️ Modifier
+          </button>
+          
+          <button class="btn btn--outline" @click="archiveTask" :disabled="isArchiving">
+            {{ isArchiving ? 'Archivage...' : '📦 Archiver' }}
+          </button>
+
+          <!-- Bouton de suppression avec confirmation -->
+          <button
+            class="btn btn--danger"
+            @click="confirmDelete"
+            :disabled="isDeleting"
+          >
+            {{ isDeleting ? 'Suppression...' : '🗑️ Supprimer' }}
+          </button>
+        </div>
       </div>
 
       <!-- Modal de confirmation de suppression -->
@@ -131,14 +147,28 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal d'édition de tâche -->
+    <TaskForm
+      v-if="showEditForm"
+      :projectId="task.project_id"
+      :existingTask="task"
+      @close="showEditForm = false"
+      @task-saved="onTaskSaved"
+    />
   </div>
 </template>
 
 <script>
-import { fetchTask, deleteTask } from '../services/api'
+import { fetchTask, deleteTask, updateTask } from '../services/api'
+import TaskForm from '../components/TaskForm.vue'
 
 export default {
   name: 'TaskDetailView',
+
+  components: {
+    TaskForm
+  },
 
   data() {
     return {
@@ -150,8 +180,12 @@ export default {
       error: null,
       /** Affichage du modal de confirmation */
       showConfirm: false,
+      /** Affichage du formulaire d'édition */
+      showEditForm: false,
       /** État de la suppression en cours */
-      isDeleting: false
+      isDeleting: false,
+      /** État d'archivage en cours */
+      isArchiving: false
     }
   },
 
@@ -247,6 +281,32 @@ export default {
       } finally {
         this.isDeleting = false
       }
+    },
+    
+    /**
+     * Archive la tâche.
+     */
+    async archiveTask() {
+      if (!confirm('Voulez-vous archiver cette tâche ? Elle n\'apparaîtra plus dans le tableau Kanban.')) return
+      
+      this.isArchiving = true
+      try {
+        await updateTask(this.task.id, { is_archived: 1 })
+        // Redirection vers le Kanban après archivage
+        this.$router.push(`/kanban/${this.task.project_id}`)
+      } catch (err) {
+        this.error = 'Erreur lors de l\'archivage de la tâche.'
+      } finally {
+        this.isArchiving = false
+      }
+    },
+
+    /**
+     * Appelé lorsque la tâche est modifiée avec succès depuis le TaskForm.
+     */
+    onTaskSaved(updatedTask) {
+      this.task = updatedTask
+      this.showEditForm = false
     }
   }
 }
