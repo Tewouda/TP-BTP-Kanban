@@ -250,4 +250,19 @@ export default {
     }
   }
 }
+async function changeTaskStatus(taskId, newStatus) {
+    try {
+        // 1. Appel API pour mettre à jour la base de données
+        await updateTask(taskId, { status: newStatus });
+        
+        // 2. Mise à jour locale pour que l'interface change sans recharger
+        const task = tasks.value.find(t => t.id === taskId);
+        if (task) task.status = newStatus;
+        
+        // 3. Message de succès (Optionnel mais conseillé)
+    } catch (error) {
+        // Gérer l'état d'erreur (Consigne Partie 2)
+        console.error("Erreur de déplacement", error);
+    }
+}
 </script>

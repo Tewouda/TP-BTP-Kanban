@@ -63,7 +63,10 @@ async function start() {
   // ============================================================
   // Démarrage du serveur
   // ============================================================
-  app.listen(PORT, () => {
+  
+  app.get('/api/test-data', (req, res) => {
+  res.json([{ id: 1, name: "Chantier Test Efrei", status: "En cours" }]);
+});  app.listen(PORT, () => {
     console.log(`🚀 Serveur BTP Kanban démarré sur http://localhost:${PORT}`);
     console.log(`📋 API disponible sur http://localhost:${PORT}/api`);
   });
